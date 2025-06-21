@@ -7,8 +7,11 @@ import {
     onAuthStateChanged,
     signOut
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 
+// =================================================================================
+// CONFIGURAÇÃO REAL DO FIREBASE
+// =================================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyCPutE28D2o4BXbQcbktpcl3ldRVwam1FA",
   authDomain: "ldsync-app.firebaseapp.com",
@@ -22,13 +25,10 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const mockLeagueData = [
-    { name: 'Ana S.', avatar: '🌟', score: 1250 },
-    { name: 'Carlos P.', avatar: '🧠', score: 1150 },
-    { name: 'Mariana F.', avatar: '❤️', score: 750 },
-    { name: 'João G.', avatar: '🛡️', score: 980 },
-    { name: 'Sofia L.', avatar: '🎉', score: 1050 },
-];
+
+// =================================================================================
+// COMPONENTES DAS TELAS
+// =================================================================================
 
 const LoginScreen = ({ handleCreateAccount, handleLogin, error }) => {
     const [name, setName] = useState('');
@@ -113,7 +113,11 @@ const SelectTribeScreen = ({ onSelectTribe, userData }) => {
     );
 };
 
-const BussolaScreen = ({ user, bussola, dailyPriorities, dailyReview, onSave, onStartMorningRitual, onStartEveningRitual }) => {
+const BussolaScreen = ({ user, onSave, onStartMorningRitual, onStartEveningRitual }) => {
+    const bussola = user?.bussola;
+    const dailyPriorities = user?.daily?.priorities;
+    const dailyReview = user?.daily?.review;
+
     const [sonho, setSonho] = useState(bussola?.sonho || '');
     const [objetivo, setObjetivo] = useState(bussola?.objetivoTrimestral || '');
     const [highlights, setHighlights] = useState(bussola?.weeklyHighlights || []);
@@ -286,21 +290,21 @@ const RitualEveningScreen = ({ onComplete }) => {
 };
 
 const AcaoScreen = ({ currentUser, leagueData }) => {
-    const rankedList = [...leagueData, currentUser].sort((a, b) => b.score - a.score);
+    const rankedList = [...leagueData].sort((a, b) => (b.score || 0) - (a.score || 0));
 
     return (
         <div className="flex flex-col h-full text-gray-800">
              <div className="text-center mb-6">
-                <h2 className="text-3xl font-extrabold">Liga Diamante 💎</h2>
-                <p className="text-base text-gray-500">A sua competição semanal.</p>
+                <h2 className="text-3xl font-extrabold">Liga Semanal</h2>
+                <p className="text-base text-gray-500">Veja o progresso da comunidade.</p>
             </div>
             <div className="space-y-3 flex-grow overflow-y-auto pr-2">
                 {rankedList.map((player, index) => (
-                    <div key={player.name} className={`flex items-center p-3 rounded-xl border transition-all ${player.name === currentUser.name ? 'border-2 border-blue-600 bg-blue-50 shadow-lg ring-4 ring-blue-200' : 'border-gray-200 bg-white shadow-sm'}`}>
-                        <span className={`font-bold text-lg w-8 ${player.name === currentUser.name ? 'text-blue-800' : 'text-gray-400'}`}>{index + 1}</span>
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${player.name === currentUser.name ? 'bg-blue-200' : 'bg-gray-200'}`}>{player.avatar}</div>
-                        <span className={`ml-3 font-bold flex-grow ${player.name === currentUser.name ? 'text-blue-800' : ''}`}>{player.name === currentUser.name ? "Você" : player.name}</span>
-                        <span className={`font-bold ${player.name === currentUser.name ? 'text-blue-800' : 'text-gray-700'}`}>{player.score || 0} XP</span>
+                    <div key={player.uid || index} className={`flex items-center p-3 rounded-xl border transition-all ${player.uid === currentUser.uid ? 'border-2 border-blue-600 bg-blue-50 shadow-lg ring-4 ring-blue-200' : 'border-gray-200 bg-white shadow-sm'}`}>
+                        <span className={`font-bold text-lg w-8 ${player.uid === currentUser.uid ? 'text-blue-800' : 'text-gray-400'}`}>{index + 1}</span>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${player.uid === currentUser.uid ? 'bg-blue-200' : 'bg-gray-200'}`}>{player.avatar}</div>
+                        <span className={`ml-3 font-bold flex-grow ${player.uid === currentUser.uid ? 'text-blue-800' : ''}`}>{player.uid === currentUser.uid ? "Você" : player.name}</span>
+                        <span className={`font-bold ${player.uid === currentUser.uid ? 'text-blue-800' : 'text-gray-700'}`}>{player.score || 0} XP</span>
                     </div>
                 ))}
             </div>
@@ -375,6 +379,7 @@ export default function App() {
     const [error, setError] = useState('');
     const [currentUser, setCurrentUser] = useState(null); 
     const [userData, setUserData] = useState(null); 
+    const [leagueData, setLeagueData] = useState([]);
     
     const isUserLoggedIn = currentUser != null;
     
@@ -386,7 +391,7 @@ export default function App() {
                 const userDocSnap = await getDoc(userDocRef);
                 
                 if (userDocSnap.exists()) {
-                    const dbData = userDocSnap.data();
+                    const dbData = { ...userDocSnap.data(), uid: user.uid };
                     setUserData(dbData);
                     if (!dbData.tribe) {
                         setScreen('selectTribe');
@@ -394,10 +399,6 @@ export default function App() {
                         setScreen('bussola');
                     }
                 } else {
-                    // This case is for new users who just signed up
-                    // but their doc might not be set yet on the state.
-                    // The handleCreateAccount function will set it.
-                    // We go to selectTribe as a fallback.
                     setScreen('selectTribe');
                 }
             } else {
@@ -408,6 +409,18 @@ export default function App() {
         });
         return () => unsubscribe();
     }, []);
+
+    useEffect(() => {
+        const fetchLeagueData = async () => {
+            if (screen === 'acao') {
+                const usersCol = collection(db, 'users');
+                const userSnapshot = await getDocs(usersCol);
+                const usersList = userSnapshot.docs.map(doc => ({...doc.data(), uid: doc.id}));
+                setLeagueData(usersList);
+            }
+        };
+        fetchLeagueData();
+    }, [screen]);
 
 
     const getFriendlyErrorMessage = (code) => {
@@ -439,7 +452,7 @@ export default function App() {
                 createdAt: new Date(),
             };
             await setDoc(doc(db, "users", user.uid), initialUserData);
-            setUserData(initialUserData);
+            setUserData({...initialUserData, uid: user.uid});
         } catch (err) {
             setError(getFriendlyErrorMessage(err.code));
         }
@@ -547,19 +560,19 @@ export default function App() {
         
         switch (screen) {
             case 'bussola':
-                return <BussolaScreen {...{ user: userData, bussola: userData.bussola, dailyPriorities: userData.daily?.priorities, dailyReview: userData.daily?.review, onSave: handleSaveBussola, onStartMorningRitual: handleStartMorningRitual, onStartEveningRitual: handleStartEveningRitual }} />;
+                return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual: handleStartMorningRitual, onStartEveningRitual: handleStartEveningRitual }} />;
             case 'ritualMorning':
                 return <RitualMorningScreen onComplete={handleCompleteMorningRitual} />;
             case 'ritualEvening':
                 return <RitualEveningScreen onComplete={handleCompleteEveningRitual} />;
             case 'acao':
-                return <AcaoScreen currentUser={userData} leagueData={mockLeagueData} />;
+                return <AcaoScreen currentUser={userData} leagueData={leagueData} />;
             case 'comunidade':
                 return <PlaceholderScreen title="Comunidade" icon="💬" message="Aqui ficará o feed da comunidade." />;
             case 'perfil':
                 return <PerfilScreen user={userData} />;
             default:
-                 return <BussolaScreen {...{ user: userData, bussola: userData.bussola, dailyPriorities: userData.daily?.priorities, dailyReview: userData.daily?.review, onSave: handleSaveBussola, onStartMorningRitual: handleStartMorningRitual, onStartEveningRitual: handleStartEveningRitual }} />;
+                 return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual: handleStartMorningRitual, onStartEveningRitual: handleStartEveningRitual }} />;
         }
     };
 
