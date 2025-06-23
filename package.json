@@ -12,13 +12,6 @@
     "start": "react-scripts start",
     "build": "CI=false react-scripts build"
   },
-  "eslintConfig": {
-    "extends": "react-app",
-    "rules": {
-      "no-unused-vars": "warn",
-      "react/prop-types": "off"
-    }
-  },
   "browserslist": {
     "production": [
       ">0.2%",
