@@ -149,7 +149,7 @@ const BussolaScreen = ({ user, onSave, onStartMorningRitual, onStartEveningRitua
         const days = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
         const dayName = days[today.getDay()];
         const dayOfWeek = today.getDay(); 
-        const daysLeft = dayOfWeek === 0 ? 1 : 7 - dayOfWeek; // Adjust for Sunday
+        const daysLeft = dayOfWeek === 0 ? 1 : 7 - dayOfWeek;
         const message = daysLeft === 1 ? "Último dia da semana!" : `Faltam ${daysLeft} dias para o fim da semana.`;
         
         return (
@@ -364,7 +364,8 @@ const PerfilScreen = ({ user }) => {
                  <div className="mt-4 p-2 bg-gray-100 rounded-lg text-sm text-gray-600">
                     <p className="font-semibold">{formattedDate}</p>
                     <p className="font-mono text-lg">{formattedTime}</p>
-                </div>
+                 </div>
+                 <p className="text-xs text-gray-400 mt-2">Versão: 1.18</p>
             </div>
             <div className="mb-6">
                 <h3 className="font-bold mb-3 text-center text-base text-gray-500 uppercase tracking-wider">Suas Horas de Voo</h3>
@@ -431,7 +432,7 @@ export default function App() {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                if (currentUser && currentUser.uid === user.uid) return; // Avoid re-running for the same user
+                if (currentUser && currentUser.uid === user.uid) return;
                 setCurrentUser(user);
                 const userDocRef = doc(db, "users", user.uid);
                 const userDocSnap = await getDoc(userDocRef);
@@ -439,11 +440,15 @@ export default function App() {
                 if (userDocSnap.exists()) {
                     let dbData = { ...userDocSnap.data(), uid: user.uid };
                     const today = new Date().toDateString();
-                    const lastRitualDate = dbData.daily?.morningRitualCompletedAt?.toDate().toDateString();
-                    if(lastRitualDate !== today) {
-                        dbData.daily = {}; 
+                    const lastRitualTimestamp = dbData.daily?.morningRitualCompletedAt;
+                    if (lastRitualTimestamp) {
+                        const lastRitualDate = lastRitualTimestamp.toDate().toDateString();
+                         if(lastRitualDate !== today) {
+                            dbData.daily = {}; 
+                        }
                     }
                     setUserData(dbData);
+
                     if (!dbData.tribe) {
                         setScreen('selectTribe');
                     } else {
@@ -470,8 +475,17 @@ export default function App() {
                 setLeagueData(usersList);
             }
         };
+        
+        if(screen === 'bussola') {
+            const today = new Date().toDateString();
+            const lastRitualDate = userData?.daily?.morningRitualCompletedAt?.toDate().toDateString();
+             if(lastRitualDate !== today && userData?.daily) {
+                setUserData(prev => ({...prev, daily: {}}));
+            }
+        }
+
         fetchLeagueData();
-    }, [screen, isUserLoggedIn]);
+    }, [screen, isUserLoggedIn, userData]);
 
 
     const getFriendlyErrorMessage = (code) => {
@@ -561,14 +575,17 @@ export default function App() {
         
         try {
             if (currentUser) {
+                const dailyUpdate = {
+                    priorities: priorities,
+                    morningRitualCompletedAt: new Date()
+                };
                 await updateDoc(doc(db, "users", currentUser.uid), {
                     score: newScore,
                     "horasVoo.presenca": newHorasVoo,
-                    "daily.priorities": priorities,
-                    "daily.morningRitualCompletedAt": new Date()
+                    daily: dailyUpdate
                 });
+                setUserData(prev => ({ ...prev, score: newScore, horasVoo: {...prev.horasVoo, presenca: newHorasVoo}, daily: dailyUpdate }));
             }
-            setUserData(prev => ({ ...prev, score: newScore, horasVoo: {...prev.horasVoo, presenca: newHorasVoo}, daily: {...(prev.daily || {}), priorities} }));
             setScreen('bussola');
         } catch(err) {
             setError("Não foi possível guardar o seu ritual.")
@@ -582,14 +599,18 @@ export default function App() {
         
         try {
              if (currentUser) {
+                const dailyUpdate = {
+                    ...userData.daily,
+                    review: review,
+                    eveningRitualCompletedAt: new Date()
+                };
                 await updateDoc(doc(db, "users", currentUser.uid), {
                     score: newScore,
                     "horasVoo.presenca": newHorasVoo,
-                    "daily.review": review,
-                    "daily.eveningRitualCompletedAt": new Date()
+                    daily: dailyUpdate
                 });
-            }
-            setUserData(prev => ({ ...prev, score: newScore, horasVoo: {...prev.horasVoo, presenca: newHorasVoo}, daily: {...(prev.daily || {}), review} }));
+                setUserData(prev => ({ ...prev, score: newScore, horasVoo: {...prev.horasVoo, presenca: newHorasVoo}, daily: dailyUpdate }));
+             }
             setScreen('bussola');
         } catch(err) {
             setError("Não foi possível guardar a sua reflexão.")
