@@ -144,6 +144,14 @@ const BussolaScreen = ({ user, onSave, onStartMorningRitual, onStartEveningRitua
         setIsEditing(false);
     };
 
+    const DaysLeftInWeek = () => {
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // Sunday = 0, Saturday = 6
+        const daysLeft = 7 - dayOfWeek;
+        const message = daysLeft === 1 ? "Último dia da semana!" : `Faltam ${daysLeft} dias para o fim da semana.`;
+        return <p className="text-xs text-center text-gray-400 mt-2">{message}</p>;
+    };
+
     const ActionButton = () => {
         if (isEditing) {
             return <button onClick={handleSave} className="w-full p-4 bg-blue-600 text-white text-center font-bold rounded-xl cursor-pointer shadow-lg hover:bg-blue-700">Guardar Bússola</button>;
@@ -157,22 +165,23 @@ const BussolaScreen = ({ user, onSave, onStartMorningRitual, onStartEveningRitua
         return (
             <div className="p-4 border-2 border-dashed border-green-400 rounded-2xl bg-green-50 text-center">
                 <h3 className="font-bold text-green-800">Dia Concluído! ✨</h3>
-                <p className="text-sm text-green-700 mt-1">Volte amanhã para um novo ciclo.</p>
+                <p className="text-sm text-green-700 mt-1">Ótimo trabalho. Volte amanhã para um novo ciclo.</p>
             </div>
         );
     };
 
     return (
         <div className="flex flex-col h-full text-gray-800">
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex justify-between items-start mb-4">
                 <div>
                     <h2 className="text-3xl font-extrabold">Sua Bússola</h2>
                     <p className="text-base text-gray-500">Olá, {user?.name || 'usuário'}!</p>
                 </div>
                 <div className="text-3xl">{user?.avatar || '👤'}</div>
             </div>
+             <DaysLeftInWeek />
 
-            <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm flex-grow">
+            <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm flex-grow mt-2">
                 {isEditing ? (
                      <div className="space-y-4">
                         <div>
@@ -257,31 +266,45 @@ const RitualMorningScreen = ({ onComplete }) => {
     );
 };
 
-const RitualEveningScreen = ({ onComplete }) => {
-    const [rating, setRating] = useState(0);
-    const [gratitude, setGratitude] = useState('');
+const RitualEveningScreen = ({ priorities, onComplete }) => {
+    const [reviews, setReviews] = useState(() => priorities.map(p => ({ text: p, status: 'pendente', emotion: null })));
+    const emotions = ['😊', '🤔', '💪', '😟'];
+
+    const setStatus = (index, status) => {
+        const newReviews = [...reviews];
+        newReviews[index].status = status;
+        setReviews(newReviews);
+    };
+
+    const setEmotion = (index, emotion) => {
+        const newReviews = [...reviews];
+        newReviews[index].emotion = emotion;
+        setReviews(newReviews);
+    };
 
     return (
          <div className="flex flex-col h-full text-gray-800">
             <div className="text-center mb-6">
                 <h2 className="text-3xl font-extrabold">Ritual do Dia</h2>
-                <p className="text-base text-gray-500 mt-1">Reflita sobre o seu dia e celebre o progresso.</p>
+                <p className="text-base text-gray-500 mt-1">Reflita sobre as suas prioridades de hoje.</p>
             </div>
-            <div className="space-y-6 flex-grow">
-                <div>
-                    <label className="font-bold text-sm">Como avalia o seu dia?</label>
-                    <div className="flex justify-center text-4xl mt-2">
-                        {[1, 2, 3, 4, 5].map(star => (
-                            <span key={star} onClick={() => setRating(star)} className={`cursor-pointer ${star <= rating ? 'text-amber-400' : 'text-gray-300'}`}>★</span>
-                        ))}
+            <div className="space-y-4 flex-grow overflow-y-auto pr-2">
+                {reviews.map((review, index) => (
+                    <div key={index} className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                        <p className="font-bold text-gray-700">{review.text}</p>
+                        <div className="flex justify-around mt-2">
+                            <button onClick={() => setStatus(index, 'concluida')} className={`py-1 px-3 text-sm rounded-full ${review.status === 'concluida' ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>Concluída</button>
+                            <button onClick={() => setStatus(index, 'adiada')} className={`py-1 px-3 text-sm rounded-full ${review.status === 'adiada' ? 'bg-amber-500 text-white' : 'bg-gray-200'}`}>Adiar</button>
+                        </div>
+                        <div className="flex justify-around mt-3 text-2xl">
+                            {emotions.map(emoji => (
+                                <button key={emoji} onClick={() => setEmotion(index, emoji)} className={`p-1 rounded-full transition-transform duration-150 ${review.emotion === emoji ? 'bg-blue-200 scale-125' : ''}`}>{emoji}</button>
+                            ))}
+                        </div>
                     </div>
-                </div>
-                <div>
-                    <label className="font-bold text-sm">Pelo que você é grato hoje?</label>
-                    <textarea value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Escreva aqui um ou mais motivos de gratidão..." className="w-full mt-1 p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
-                </div>
+                ))}
             </div>
-            <button onClick={() => onComplete({ rating, gratitude })} 
+            <button onClick={() => onComplete(reviews)} 
                     className={`mt-4 p-4 text-white text-center font-bold rounded-xl cursor-pointer shadow-lg transition-colors bg-blue-600 hover:bg-blue-700`}>
                 Finalizar o Dia
             </button>
@@ -392,7 +415,17 @@ export default function App() {
                 
                 if (userDocSnap.exists()) {
                     const dbData = { ...userDocSnap.data(), uid: user.uid };
+                    
+                    // Lógica de passagem de dia automática
+                    const today = new Date().toDateString();
+                    const lastRitualDate = dbData.daily?.morningRitualCompletedAt?.toDate().toDateString();
+
+                    if(lastRitualDate !== today) {
+                        dbData.daily = {}; // Reseta os dados diários se for um novo dia
+                    }
+
                     setUserData(dbData);
+
                     if (!dbData.tribe) {
                         setScreen('selectTribe');
                     } else {
@@ -412,7 +445,7 @@ export default function App() {
 
     useEffect(() => {
         const fetchLeagueData = async () => {
-            if (screen === 'acao') {
+            if (screen === 'acao' && isUserLoggedIn) {
                 const usersCol = collection(db, 'users');
                 const userSnapshot = await getDocs(usersCol);
                 const usersList = userSnapshot.docs.map(doc => ({...doc.data(), uid: doc.id}));
@@ -420,7 +453,7 @@ export default function App() {
             }
         };
         fetchLeagueData();
-    }, [screen]);
+    }, [screen, isUserLoggedIn]);
 
 
     const getFriendlyErrorMessage = (code) => {
@@ -544,9 +577,23 @@ export default function App() {
             setError("Não foi possível guardar a sua reflexão.")
         }
     };
+
+    const handleNewDay = async () => {
+         try {
+            if(currentUser) {
+                await updateDoc(doc(db, "users", currentUser.uid), {
+                    daily: {} 
+                });
+            }
+            setUserData(prev => ({...prev, daily: {}}));
+            setScreen('bussola');
+        } catch(err) {
+            setError("Não foi possível começar um novo dia.");
+        }
+    };
     
     const renderContent = () => {
-        if (screen === 'loading') {
+        if (screen === 'loading' || !userData && isUserLoggedIn) {
             return <div className="flex items-center justify-center h-full text-blue-600 text-lg font-semibold">Carregando LDSync...</div>
         }
         
@@ -560,11 +607,11 @@ export default function App() {
         
         switch (screen) {
             case 'bussola':
-                return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual: handleStartMorningRitual, onStartEveningRitual: handleStartEveningRitual }} />;
+                return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual, onStartEveningRitual, onNewDay: handleNewDay }} />;
             case 'ritualMorning':
                 return <RitualMorningScreen onComplete={handleCompleteMorningRitual} />;
             case 'ritualEvening':
-                return <RitualEveningScreen onComplete={handleCompleteEveningRitual} />;
+                return <RitualEveningScreen priorities={userData?.daily?.priorities || []} onComplete={handleCompleteEveningRitual} />;
             case 'acao':
                 return <AcaoScreen currentUser={userData} leagueData={leagueData} />;
             case 'comunidade':
@@ -572,7 +619,7 @@ export default function App() {
             case 'perfil':
                 return <PerfilScreen user={userData} />;
             default:
-                 return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual: handleStartMorningRitual, onStartEveningRitual: handleStartEveningRitual }} />;
+                 return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual, onStartEveningRitual, onNewDay: handleNewDay }} />;
         }
     };
 
@@ -590,3 +637,4 @@ export default function App() {
         </div>
     );
 }
+
