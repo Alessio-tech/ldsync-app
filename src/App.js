@@ -144,12 +144,19 @@ const BussolaScreen = ({ user, onSave, onStartMorningRitual, onStartEveningRitua
         setIsEditing(false);
     };
 
-    const DaysLeftInWeek = () => {
+    const TimeIndicators = () => {
         const today = new Date();
-        const dayOfWeek = today.getDay(); // Sunday = 0, Saturday = 6
-        const daysLeft = 7 - dayOfWeek;
+        const days = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+        const dayName = days[today.getDay()];
+        const dayOfWeek = today.getDay(); 
+        const daysLeft = dayOfWeek === 0 ? 1 : 7 - dayOfWeek; // Adjust for Sunday
         const message = daysLeft === 1 ? "Último dia da semana!" : `Faltam ${daysLeft} dias para o fim da semana.`;
-        return <p className="text-xs text-center text-gray-400 mt-2">{message}</p>;
+        
+        return (
+            <div className="text-center text-gray-500 text-xs mb-4 -mt-2">
+                <p>{dayName} • {message}</p>
+            </div>
+        );
     };
 
     const ActionButton = () => {
@@ -179,9 +186,9 @@ const BussolaScreen = ({ user, onSave, onStartMorningRitual, onStartEveningRitua
                 </div>
                 <div className="text-3xl">{user?.avatar || '👤'}</div>
             </div>
-             <DaysLeftInWeek />
+             <TimeIndicators />
 
-            <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm flex-grow mt-2">
+            <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm flex-grow">
                 {isEditing ? (
                      <div className="space-y-4">
                         <div>
@@ -335,35 +342,50 @@ const AcaoScreen = ({ currentUser, leagueData }) => {
     );
 };
 
-const PerfilScreen = ({ user }) => (
-    <div className="flex flex-col h-full text-gray-800">
-        <div className="text-center mb-6">
-            <div className="relative w-28 h-28 mx-auto">
-                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-100 to-emerald-100 flex items-center justify-center text-6xl mx-auto mb-2 shadow-md">{user?.avatar}</div>
-            </div>
-            <h2 className="text-3xl font-extrabold mt-3">{user?.name}</h2>
-            <p className="text-base text-gray-500">{user?.tribe}</p>
-        </div>
-        <div className="mb-6">
-            <h3 className="font-bold mb-3 text-center text-base text-gray-500 uppercase tracking-wider">Suas Horas de Voo</h3>
-            <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <p className="font-extrabold text-2xl text-amber-500 flex items-center justify-center">🚀 {user?.horasVoo?.presenca || 0}</p>
-                    <p className="text-xs font-semibold">Presença</p>
-                </div>
-                 <div className="p-3 bg-white border border-gray-200 rounded-xl shadow-sm opacity-50">
-                    <p className="font-extrabold text-2xl text-green-500 flex items-center justify-center">🌱 {user?.horasVoo?.projeto || 0}</p>
-                    <p className="text-xs font-semibold">Projeto</p>
-                </div>
-                 <div className="p-3 bg-white border border-gray-200 rounded-xl shadow-sm opacity-50">
-                    <p className="font-extrabold text-2xl text-blue-500 flex items-center justify-center">🤝 {user?.horasVoo?.colaboracao || 0}</p>
-                    <p className="text-xs font-semibold">Colaboração</p>
-                </div>
-            </div>
-        </div>
-    </div>
-);
+const PerfilScreen = ({ user }) => {
+    const [currentTime, setCurrentTime] = useState(new Date());
 
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const formattedDate = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'full' }).format(currentTime);
+    const formattedTime = new Intl.DateTimeFormat('pt-BR', { timeStyle: 'medium' }).format(currentTime);
+
+    return (
+        <div className="flex flex-col h-full text-gray-800">
+            <div className="text-center mb-6">
+                <div className="relative w-28 h-28 mx-auto">
+                    <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-100 to-emerald-100 flex items-center justify-center text-6xl mx-auto mb-2 shadow-md">{user?.avatar}</div>
+                </div>
+                <h2 className="text-3xl font-extrabold mt-3">{user?.name}</h2>
+                <p className="text-base text-gray-500">{user?.tribe}</p>
+                 <div className="mt-4 p-2 bg-gray-100 rounded-lg text-sm text-gray-600">
+                    <p className="font-semibold">{formattedDate}</p>
+                    <p className="font-mono text-lg">{formattedTime}</p>
+                </div>
+            </div>
+            <div className="mb-6">
+                <h3 className="font-bold mb-3 text-center text-base text-gray-500 uppercase tracking-wider">Suas Horas de Voo</h3>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+                        <p className="font-extrabold text-2xl text-amber-500 flex items-center justify-center">🚀 {user?.horasVoo?.presenca || 0}</p>
+                        <p className="text-xs font-semibold">Presença</p>
+                    </div>
+                     <div className="p-3 bg-white border border-gray-200 rounded-xl shadow-sm opacity-50">
+                        <p className="font-extrabold text-2xl text-green-500 flex items-center justify-center">🌱 {user?.horasVoo?.projeto || 0}</p>
+                        <p className="text-xs font-semibold">Projeto</p>
+                    </div>
+                     <div className="p-3 bg-white border border-gray-200 rounded-xl shadow-sm opacity-50">
+                        <p className="font-extrabold text-2xl text-blue-500 flex items-center justify-center">🤝 {user?.horasVoo?.colaboracao || 0}</p>
+                        <p className="text-xs font-semibold">Colaboração</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const PlaceholderScreen = ({ title, icon, message }) => (
     <div className="flex flex-col h-full text-center items-center justify-center text-gray-800">
@@ -409,23 +431,19 @@ export default function App() {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
+                if (currentUser && currentUser.uid === user.uid) return; // Avoid re-running for the same user
                 setCurrentUser(user);
                 const userDocRef = doc(db, "users", user.uid);
                 const userDocSnap = await getDoc(userDocRef);
                 
                 if (userDocSnap.exists()) {
-                    const dbData = { ...userDocSnap.data(), uid: user.uid };
-                    
-                    // Lógica de passagem de dia automática
+                    let dbData = { ...userDocSnap.data(), uid: user.uid };
                     const today = new Date().toDateString();
                     const lastRitualDate = dbData.daily?.morningRitualCompletedAt?.toDate().toDateString();
-
                     if(lastRitualDate !== today) {
-                        dbData.daily = {}; // Reseta os dados diários se for um novo dia
+                        dbData.daily = {}; 
                     }
-
                     setUserData(dbData);
-
                     if (!dbData.tribe) {
                         setScreen('selectTribe');
                     } else {
@@ -441,7 +459,7 @@ export default function App() {
             }
         });
         return () => unsubscribe();
-    }, []);
+    }, [currentUser]);
 
     useEffect(() => {
         const fetchLeagueData = async () => {
@@ -577,20 +595,6 @@ export default function App() {
             setError("Não foi possível guardar a sua reflexão.")
         }
     };
-
-    const handleNewDay = async () => {
-         try {
-            if(currentUser) {
-                await updateDoc(doc(db, "users", currentUser.uid), {
-                    daily: {} 
-                });
-            }
-            setUserData(prev => ({...prev, daily: {}}));
-            setScreen('bussola');
-        } catch(err) {
-            setError("Não foi possível começar um novo dia.");
-        }
-    };
     
     const renderContent = () => {
         if (screen === 'loading' || !userData && isUserLoggedIn) {
@@ -607,7 +611,7 @@ export default function App() {
         
         switch (screen) {
             case 'bussola':
-                return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual, onStartEveningRitual, onNewDay: handleNewDay }} />;
+                return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual, onStartEveningRitual }} />;
             case 'ritualMorning':
                 return <RitualMorningScreen onComplete={handleCompleteMorningRitual} />;
             case 'ritualEvening':
@@ -619,7 +623,7 @@ export default function App() {
             case 'perfil':
                 return <PerfilScreen user={userData} />;
             default:
-                 return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual, onStartEveningRitual, onNewDay: handleNewDay }} />;
+                 return <BussolaScreen {...{ user: userData, onSave: handleSaveBussola, onStartMorningRitual, onStartEveningRitual }} />;
         }
     };
 
@@ -637,4 +641,3 @@ export default function App() {
         </div>
     );
 }
-
